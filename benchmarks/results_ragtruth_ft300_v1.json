@@ -1,0 +1,32 @@
+{
+  "comment": "Encoder ablation: same Guard pipeline (question-aware NLI + min_entail_votes=1) but with adaptmem's FT-300 tuned bi-encoder swapped in for generic all-MiniLM-L6-v2. Hypothesis: domain-tuned bi-encoder lifts cosine precision because lexically-similar but semantically-irrelevant chunks score lower. Result: no measurable lift on HaluEval QA — F1 identical to generic baseline at the best threshold (0.70). Likely because HaluEval QA gives a single 1-chunk corpus per case; tuned-encoder's disambiguation advantage requires larger corpora. Re-test on RAGTruth public mirror (when accessible) for span-level multi-chunk corpora.",
+  "dataset": "pminervini/HaluEval",
+  "config": "qa",
+  "n_examples": 50,
+  "n_cases": 100,
+  "encoder": "/Users/macmini/Projects/metis-pair/benchmarks/models/minilm-lme-ft-300",
+  "encoder_label": "adaptmem-FT-300",
+  "nli_model": "cross-encoder/nli-deberta-v3-base",
+  "entail_threshold": 0.5,
+  "min_entail_votes": 1,
+  "question_aware_premise": true,
+  "device": "cpu",
+  "sweep": [
+    {"threshold": 0.30, "precision": 0.434, "recall": 0.720, "f1": 0.541, "tp": 36, "fp": 47, "fn": 14, "tn": 3, "wall_s": 21.2},
+    {"threshold": 0.35, "precision": 0.440, "recall": 0.740, "f1": 0.552, "tp": 37, "fp": 47, "fn": 13, "tn": 3, "wall_s": 20.7},
+    {"threshold": 0.40, "precision": 0.447, "recall": 0.760, "f1": 0.563, "tp": 38, "fp": 47, "fn": 12, "tn": 3, "wall_s": 16.6},
+    {"threshold": 0.45, "precision": 0.448, "recall": 0.780, "f1": 0.569, "tp": 39, "fp": 48, "fn": 11, "tn": 2, "wall_s": 17.6},
+    {"threshold": 0.50, "precision": 0.455, "recall": 0.800, "f1": 0.580, "tp": 40, "fp": 48, "fn": 10, "tn": 2, "wall_s": 15.9},
+    {"threshold": 0.55, "precision": 0.467, "recall": 0.840, "f1": 0.600, "tp": 42, "fp": 48, "fn": 8, "tn": 2, "wall_s": 10.3},
+    {"threshold": 0.60, "precision": 0.473, "recall": 0.860, "f1": 0.610, "tp": 43, "fp": 48, "fn": 7, "tn": 2, "wall_s": 8.5},
+    {"threshold": 0.65, "precision": 0.484, "recall": 0.900, "f1": 0.629, "tp": 45, "fp": 48, "fn": 5, "tn": 2, "wall_s": 7.6},
+    {"threshold": 0.70, "precision": 0.489, "recall": 0.920, "f1": 0.639, "tp": 46, "fp": 48, "fn": 4, "tn": 2, "wall_s": 6.1}
+  ],
+  "best": {"threshold": 0.70, "precision": 0.489, "recall": 0.920, "f1": 0.639},
+  "delta_vs_generic": {
+    "f1": 0.000,
+    "precision": 0.000,
+    "recall": 0.000,
+    "interpretation": "Identical at the best threshold. HaluEval QA's 1-chunk-per-case corpus structure does not exercise the tuned encoder's disambiguation advantage; large multi-chunk corpora (RAGTruth) needed for a fair test of the hypothesis."
+  }
+}

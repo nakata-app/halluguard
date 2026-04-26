@@ -152,8 +152,11 @@ We tried the public RAGTruth mirrors first (`wandb/RAGTruth`, `flagrant/RAGTruth
 | Bi-encoder only | 200 | 0.70 | 0.451 | 0.790 | 0.575 |
 | Bi-encoder + NLI | 200 | 0.70 | 0.490 | 0.960 | **0.649** |
 | Bi-encoder + NLI + question-aware premise | 100 | 0.70 | 0.489 | 0.920 | 0.639 |
+| **Same**, but bi-encoder swapped to adaptmem **FT-300** (domain-tuned) | 100 | 0.70 | 0.489 | 0.920 | 0.639 |
 
 Latest run is `benchmarks/results_ragtruth_q_v1.json` — same Guard, but the NLI premise is now `f"Question: {q}\nContext: {chunk}"` instead of `chunk` alone. F1 is within noise of the older 200-case run (0.639 vs 0.649; ±1 case ≈ ±1pt on a 100-case sample). Recall held above 0.90; precision did not move much. Question-aware framing **did not collapse the false-positive ceiling on its own** — the bi-encoder still surfaces enough lexically-similar but semantically-irrelevant chunks that NLI rules them in.
+
+**Encoder ablation (`results_ragtruth_ft300_v1.json`):** the hypothesis was that swapping the generic `all-MiniLM-L6-v2` bi-encoder for adaptmem's domain-tuned **FT-300** model would lift precision (lexically-similar-but-irrelevant chunks score lower → fewer FPs at the cosine gate). On HaluEval QA the result was **identical at the best threshold** (0.489 / 0.920 / 0.639). Probably because HaluEval QA gives a single 1-chunk corpus per case; the tuned encoder's disambiguation advantage requires larger corpora. Re-test on RAGTruth public mirror (when accessible) for a fair multi-chunk evaluation.
 
 The honest takeaway: **halluguard catches almost every hallucination on a real benchmark, but at a high false-positive rate**. For real-world deployment you want it as a *flag-for-review* layer, not an auto-reject gate. The new `min_entail_votes` knob (require N of top-K to entail, not just one) is the lever for trading recall down for precision — that ablation isn't measured here yet.
 
