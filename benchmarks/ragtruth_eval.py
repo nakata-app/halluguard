@@ -110,6 +110,7 @@ def evaluate(
     threshold: float,
     verifier,
     entail_threshold: float,
+    min_entail_votes: int = 1,
 ) -> tuple[int, int, int, int, dict[str, tuple[int, int, int, int]]]:
     """Run guard on all cases at the given threshold.
 
@@ -125,6 +126,7 @@ def evaluate(
             threshold=threshold,
             verifier=verifier,
             entail_threshold=entail_threshold,
+            min_entail_votes=min_entail_votes,
         )
         pred_hallu = predict(guard, case)
         gold_hallu = case["gold_hallucinated"]
@@ -166,6 +168,15 @@ def main():
         help="If set, only evaluate at this single threshold (no sweep).",
     )
     ap.add_argument("--entail-threshold", type=float, default=0.5)
+    ap.add_argument(
+        "--min-votes",
+        type=int,
+        default=1,
+        help="Minimum number of top-K chunks that must clear --entail-threshold "
+             "for a claim to count as SUPPORTED. Default 1 keeps the legacy "
+             "max-only policy. Raise to 2/3 to require multi-evidence "
+             "agreement (trades recall for precision — v0.3 ablation).",
+    )
     ap.add_argument(
         "--encoder",
         default="all-MiniLM-L6-v2",
@@ -228,7 +239,7 @@ def main():
     )
     print(
         f"# Encoder: {args.encoder}  |  NLI: {'on (' + args.nli_model + ')' if args.nli else 'off'}  "
-        f"|  entail_threshold: {args.entail_threshold}"
+        f"|  entail_threshold: {args.entail_threshold}  |  min_votes: {args.min_votes}"
     )
     print(f"# Positive class = HALLUCINATED")
     print()
@@ -239,7 +250,8 @@ def main():
     for thr in thresholds:
         t0 = time.time()
         tp, fp, tn, fn, per_task = evaluate(
-            cases, encoder, thr, verifier, args.entail_threshold
+            cases, encoder, thr, verifier, args.entail_threshold,
+            min_entail_votes=args.min_votes,
         )
         p, r, f1 = prf(tp, fp, fn)
         dt = time.time() - t0
