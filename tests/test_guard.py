@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from halluguard import Guard, ClaimStatus
+from halluguard.retriever import Chunk
 from halluguard.verifier import VerifierResult
 from tests.test_retriever import FakeEncoder
 
@@ -160,3 +161,48 @@ def test_claim_vote_metadata_none_without_verifier():
     assert claim.entail_votes is None
     assert claim.entail_chunks is None
     assert claim.vote_str == "—"
+
+
+# ---- from_chunks: pre-chunked corpus path ---------------------------------
+
+
+def test_guard_from_chunks_uses_supplied_ids():
+    """When the caller already has chunks (e.g. from a custom splitter or
+    an external store), Guard.from_chunks must use those ids verbatim and
+    not re-chunk. The user-controlled id is what cites back to their source."""
+    chunks = [
+        Chunk(id="my-source/intro", text="postgres handles json natively"),
+        Chunk(id="my-source/conclusion", text="redis is an in-memory cache"),
+    ]
+    guard = Guard.from_chunks(chunks=chunks, encoder=FakeEncoder(), threshold=0.1)
+    report = guard.check("postgres handles json well.")
+    supported = [c for c in report.claims if c.status == ClaimStatus.SUPPORTED]
+    assert supported, "expected at least one supported claim"
+    # The cited id is the one the caller passed in — not a re-derived d0_c0
+    assert any("my-source/" in cid for cid in supported[0].citation_ids)
+
+
+def test_guard_from_chunks_empty_chunks_flags_everything():
+    """An empty chunks list yields an empty index → every claim flagged."""
+    guard = Guard.from_chunks(chunks=[], encoder=FakeEncoder())
+    report = guard.check("any claim at all.")
+    assert all(c.status == ClaimStatus.HALLUCINATION_FLAG for c in report.claims)
+    assert all(c.support_score == 0.0 for c in report.claims)
+
+
+def test_guard_from_chunks_passes_kwargs_to_init():
+    """Keyword-only args (top_k, threshold, verifier...) must reach Guard.__init__."""
+    chunks = [Chunk(id="c0", text="postgres is good")]
+    rv = _RecordingVerifier()
+    guard = Guard.from_chunks(
+        chunks=chunks,
+        encoder=FakeEncoder(),
+        threshold=0.1,
+        top_k=3,
+        verifier=rv,
+        min_entail_votes=2,
+    )
+    assert guard.threshold == 0.1
+    assert guard.top_k == 3
+    assert guard.verifier is rv
+    assert guard.min_entail_votes == 2
