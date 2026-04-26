@@ -14,7 +14,17 @@ from pathlib import Path
 def main():
     ap = argparse.ArgumentParser(prog="halluguard")
     ap.add_argument("answer", help="path to answer text file (or '-' for stdin)")
-    ap.add_argument("--corpus", required=True, help="directory of .txt files (corpus)")
+    grp = ap.add_mutually_exclusive_group(required=True)
+    grp.add_argument("--corpus", help="directory of .txt files (corpus)")
+    grp.add_argument(
+        "--corpus-text",
+        help="Single string used as the entire corpus — useful for one-shot "
+             "checks where a knowledge snippet is all you have.",
+    )
+    grp.add_argument(
+        "--corpus-file",
+        help="Path to a single text file used as the entire corpus.",
+    )
     ap.add_argument("--model", default="all-MiniLM-L6-v2", help="sentence-transformers encoder")
     ap.add_argument("--threshold", type=float, default=0.55)
     ap.add_argument("--top-k", type=int, default=5)
@@ -57,14 +67,23 @@ def main():
     else:
         answer = Path(args.answer).read_text()
 
-    corpus_dir = Path(args.corpus)
-    if not corpus_dir.is_dir():
-        print(f"corpus directory not found: {corpus_dir}", file=sys.stderr)
-        sys.exit(1)
-    documents = [p.read_text() for p in sorted(corpus_dir.glob("*.txt"))]
-    if not documents:
-        print(f"no .txt files in {corpus_dir}", file=sys.stderr)
-        sys.exit(1)
+    if args.corpus_text is not None:
+        documents = [args.corpus_text]
+    elif args.corpus_file is not None:
+        cf = Path(args.corpus_file)
+        if not cf.is_file():
+            print(f"corpus file not found: {cf}", file=sys.stderr)
+            sys.exit(1)
+        documents = [cf.read_text()]
+    else:
+        corpus_dir = Path(args.corpus)
+        if not corpus_dir.is_dir():
+            print(f"corpus directory not found: {corpus_dir}", file=sys.stderr)
+            sys.exit(1)
+        documents = [p.read_text() for p in sorted(corpus_dir.glob("*.txt"))]
+        if not documents:
+            print(f"no .txt files in {corpus_dir}", file=sys.stderr)
+            sys.exit(1)
 
     from sentence_transformers import SentenceTransformer
 

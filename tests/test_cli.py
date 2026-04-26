@@ -32,9 +32,42 @@ def _run(args, **kwargs) -> subprocess.CompletedProcess:
 def test_cli_help_lists_all_flags():
     out = _run(["--help"])
     assert out.returncode == 0
-    for flag in ["--corpus", "--threshold", "--top-k", "--question",
+    for flag in ["--corpus", "--corpus-text", "--corpus-file",
+                 "--threshold", "--top-k", "--question",
                  "--nli", "--entail-threshold", "--min-votes", "--format"]:
         assert flag in out.stdout, f"missing flag in --help: {flag}"
+
+
+def test_cli_no_corpus_source_errors(tmp_path: Path):
+    answer_file = tmp_path / "ans.txt"
+    answer_file.write_text("x.")
+    out = _run([str(answer_file)])
+    assert out.returncode != 0
+    # argparse mutually-exclusive-required error
+    assert (
+        "one of the arguments" in out.stderr
+        or "required" in out.stderr.lower()
+    )
+
+
+def test_cli_two_corpus_sources_errors(tmp_path: Path):
+    answer_file = tmp_path / "ans.txt"
+    answer_file.write_text("x.")
+    out = _run([
+        str(answer_file),
+        "--corpus", str(tmp_path),
+        "--corpus-text", "some text",
+    ])
+    assert out.returncode != 0
+    assert "not allowed" in out.stderr.lower() or "argument" in out.stderr.lower()
+
+
+def test_cli_missing_corpus_file_errors(tmp_path: Path):
+    answer_file = tmp_path / "ans.txt"
+    answer_file.write_text("x.")
+    out = _run([str(answer_file), "--corpus-file", str(tmp_path / "nope.txt")])
+    assert out.returncode == 1
+    assert "corpus file not found" in out.stderr
 
 
 def test_cli_missing_corpus_dir_errors(tmp_path: Path):
