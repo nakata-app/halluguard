@@ -61,19 +61,68 @@ pyproject.toml
 .github/workflows/
 ```
 
-## High-level API (target)
+## High-level API
 
 ```python
 from halluguard import Guard
+from halluguard.verifier import NLIVerifier
+from sentence_transformers import SentenceTransformer
 
-guard = Guard.from_corpus(documents=["..."])  # build index once
-report = guard.check(answer="The user prefers PostgreSQL because it has better JSON support.")
+# Build the index once. With NLI verifier on, claims pass only when both
+# the cosine gate and the entailment gate clear.
+guard = Guard.from_documents(
+    documents=["..."],
+    encoder=SentenceTransformer("all-MiniLM-L6-v2"),
+    verifier=NLIVerifier(),       # optional, lifts recall meaningfully
+    threshold=0.55,                # cosine gate
+    entail_threshold=0.5,          # NLI gate
+    min_entail_votes=1,            # raise to 2 for "agreement of two" policy
+)
+
+# `question` is optional but recommended when the answer was generated
+# in response to a known question — it shapes the NLI premise.
+report = guard.check(
+    answer="The user prefers PostgreSQL because it has better JSON support.",
+    question="What database does the user prefer?",
+)
 
 for claim in report.claims:
-    print(claim.text, claim.status, claim.support_score)
-# "The user prefers PostgreSQL"   SUPPORTED  0.91 (chunk #m12)
-# "...because it has better JSON support"   HALLUCINATION_FLAG  0.34
+    print(claim.text, claim.status, claim.support_score, claim.vote_str)
+# "The user prefers PostgreSQL"   SUPPORTED  0.91  3/5
+# "...because it has better JSON support"   HALLUCINATION_FLAG  0.34  0/5
 ```
+
+### Knobs that matter
+
+- **`threshold` (cosine gate, default 0.55):** lower = more permissive, higher = stricter.
+  HaluEval QA optimum landed near 0.70 in our sweeps.
+- **`entail_threshold` (NLI gate, default 0.5):** independent of cosine. Tightening it improves
+  precision when paraphrased hallucinations sneak past cosine.
+- **`min_entail_votes` (default 1):** how many of the top-K chunks must clear `entail_threshold`
+  before a claim is SUPPORTED. `1` = legacy max-only policy. Set to `2` or `3` for
+  multi-evidence agreement — trades recall for precision. v0.3 ablation pending.
+- **`question=` on `Guard.check()`:** when supplied, the NLI premise becomes
+  `"Question: {q}\nContext: {chunk}"`. Useful when answers were generated to answer
+  a specific question; without it, NLI can fail to align answer-from-context patterns.
+
+### CLI
+
+```bash
+# Single-file corpus, one-shot check
+halluguard answer.txt --corpus-file knowledge.txt --nli --question "What did the user say?"
+
+# Directory of .txt files as corpus, max-only policy (legacy)
+halluguard answer.txt --corpus ./docs/ --nli
+
+# Stricter: require 2-of-5 chunks to entail before SUPPORTED
+halluguard answer.txt --corpus ./docs/ --nli --min-votes 2 --entail-threshold 0.6
+
+# Inline corpus string, no directory needed
+halluguard answer.txt --corpus-text "PostgreSQL has strong JSON support and ACID guarantees." --nli
+```
+
+The CLI exits 0 if no claim was flagged, 1 if any claim was flagged — easy to
+chain into a CI step that gates on hallucination rate.
 
 ## What halluguard is NOT
 
