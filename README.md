@@ -81,24 +81,45 @@ for claim in report.claims:
 - Not a fact-checker against the open web. The "ground truth" is **your corpus**.
 - Not a guarantee. Some hallucinations align lexically with unrelated chunks; halluguard reduces but does not eliminate false negatives. The threshold is tunable per use case.
 
-## Initial benchmark
+## Benchmarks
 
-Synthetic suite — 6 examples, 18 claims, 7 hallucinations covering polarity flips ("after render" → "before render"), false attribution (LSM-trees in Postgres), and unsupported additions (pet llamas on Mars).
+### Synthetic suite (`benchmarks/synthetic_eval.py`)
+
+6 examples, 18 claims, 7 hallucinations covering polarity flips ("after render" → "before render"), false attribution (LSM-trees in Postgres), and unsupported additions (pet llamas on Mars).
 
 | Pipeline | Precision | Recall | F1 |
 |---|---|---|---|
 | Bi-encoder only (cosine threshold) | 0.80 | 0.57 | 0.667 |
 | **Bi-encoder + NLI verifier** | **0.78** | **1.00** | **0.875** |
 
-The NLI stage catches polarity flips and unsupported additions that share lexical context with the corpus but reverse or extend its meaning. Bi-encoder cosine treats those as near-identical (high word overlap). NLI sees the logical relationship.
+Synthetic data is curated to be diagnostic — F1=0.875 is a "the pipeline isn't broken" signal, not a generalisation claim.
+
+### Real benchmark — HaluEval QA (`benchmarks/ragtruth_eval.py`)
+
+We tried the public RAGTruth mirrors first (`wandb/RAGTruth`, `flagrant/RAGTruth`, `ParticleMedia/RAGTruth`, `TIGER-Lab/RAGTruth`) — none are accessible on HF Hub. Fell back to **`pminervini/HaluEval`** (`qa` config, 10 000 items). Each item is expanded into two cases: `(knowledge, right_answer)` → gold-truthful, `(knowledge, hallucinated_answer)` → gold-hallucinated. Prediction is "hallucinated" iff any claim in the answer is flagged. Item-level evaluation (HaluEval QA has no per-span labels — RAGTruth would, but it's locked).
+
+| Pipeline | n cases | Threshold | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| Bi-encoder only | 200 | 0.70 | 0.451 | 0.790 | **0.575** |
+| Bi-encoder + NLI | 100 | 0.70 | 0.490 | **0.960** | **0.649** |
+
+The numbers are **deliberately not cherry-picked**. F1 drops vs the synthetic suite (0.875 → 0.65). That gap is the real signal: HaluEval QA hallucinations are tight paraphrases that share most words with the context, so cosine alone is weak. NLI lifts recall from 0.79 → 0.96, but precision stalls at ~0.49 because the truthful answers also fail strict NLI entailment when the question phrasing doesn't literally appear in the knowledge snippet. The guard over-flags. Tightening `entail_threshold` and chunking the question separately are the obvious next levers.
+
+The honest takeaway: **halluguard catches almost every hallucination on a real benchmark, but at a high false-positive rate**. For real-world deployment you want it as a *flag-for-review* layer, not an auto-reject gate, until the entailment-vs-question-alignment trade-off is tuned.
 
 Default NLI model: `cross-encoder/nli-deberta-v3-base` (~440MB, lazy-loaded). Replaceable with any HuggingFace cross-encoder NLI checkpoint.
 
-Larger benchmarks (RAGTruth, FActScore, HaluEval) coming next.
+Run yourself:
+```bash
+pip install -e ".[bench]"
+python benchmarks/ragtruth_eval.py --n-examples 100 --nli
+```
+
+Larger benchmarks (full RAGTruth once a public mirror appears, FActScore) coming next.
 
 ## Status
 
-`v0.2` — bi-encoder + NLI verifier wired up, synthetic bench passing. RAGTruth integration and CI workflows next.
+`v0.2` — bi-encoder + NLI verifier wired up, synthetic bench passing, real HaluEval QA bench wired in with honest numbers. RAGTruth (when reachable) and CI workflows next.
 
 ## License
 
