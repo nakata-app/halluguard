@@ -81,9 +81,24 @@ for claim in report.claims:
 - Not a fact-checker against the open web. The "ground truth" is **your corpus**.
 - Not a guarantee. Some hallucinations align lexically with unrelated chunks; halluguard reduces but does not eliminate false negatives. The threshold is tunable per use case.
 
+## Initial benchmark
+
+Synthetic suite — 6 examples, 18 claims, 7 hallucinations covering polarity flips ("after render" → "before render"), false attribution (LSM-trees in Postgres), and unsupported additions (pet llamas on Mars).
+
+| Pipeline | Precision | Recall | F1 |
+|---|---|---|---|
+| Bi-encoder only (cosine threshold) | 0.80 | 0.57 | 0.667 |
+| **Bi-encoder + NLI verifier** | **0.78** | **1.00** | **0.875** |
+
+The NLI stage catches polarity flips and unsupported additions that share lexical context with the corpus but reverse or extend its meaning. Bi-encoder cosine treats those as near-identical (high word overlap). NLI sees the logical relationship.
+
+Default NLI model: `cross-encoder/nli-deberta-v3-base` (~440MB, lazy-loaded). Replaceable with any HuggingFace cross-encoder NLI checkpoint.
+
+Larger benchmarks (RAGTruth, FActScore, HaluEval) coming next.
+
 ## Status
 
-Initial commit. Architecture above is the plan. Implementation lands incrementally.
+`v0.2` — bi-encoder + NLI verifier wired up, synthetic bench passing. RAGTruth integration and CI workflows next.
 
 ## License
 
