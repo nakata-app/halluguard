@@ -27,6 +27,29 @@ def main():
         help="Optional source question — when set, becomes part of the NLI premise "
              "(useful when the answer was generated to answer a specific question).",
     )
+    ap.add_argument(
+        "--nli",
+        action="store_true",
+        help="Enable the NLI cross-encoder verifier (claim-level entailment).",
+    )
+    ap.add_argument(
+        "--nli-model",
+        default="cross-encoder/nli-deberta-v3-base",
+        help="NLI cross-encoder model (only used with --nli).",
+    )
+    ap.add_argument(
+        "--entail-threshold",
+        type=float,
+        default=0.5,
+        help="NLI entailment probability required for a claim to count as supported.",
+    )
+    ap.add_argument(
+        "--min-votes",
+        type=int,
+        default=1,
+        help="Minimum number of top-K chunks that must clear --entail-threshold "
+             "for a claim to count as SUPPORTED. Raise to require multi-evidence.",
+    )
     args = ap.parse_args()
 
     if args.answer == "-":
@@ -48,6 +71,12 @@ def main():
     from halluguard import Guard
 
     encoder = SentenceTransformer(args.model)
+
+    verifier = None
+    if args.nli:
+        from halluguard.verifier import NLIVerifier
+        verifier = NLIVerifier(model_name=args.nli_model)
+
     guard = Guard.from_documents(
         documents=documents,
         encoder=encoder,
@@ -55,6 +84,9 @@ def main():
         chunk_overlap=args.chunk_overlap,
         threshold=args.threshold,
         top_k=args.top_k,
+        verifier=verifier,
+        entail_threshold=args.entail_threshold,
+        min_entail_votes=args.min_votes,
     )
     report = guard.check(answer, question=args.question)
 
