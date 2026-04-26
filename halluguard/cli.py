@@ -21,6 +21,12 @@ def main():
     ap.add_argument("--chunk-size", type=int, default=200)
     ap.add_argument("--chunk-overlap", type=int, default=50)
     ap.add_argument("--format", choices=["markdown", "plain"], default="markdown")
+    ap.add_argument(
+        "--question",
+        default=None,
+        help="Optional source question — when set, becomes part of the NLI premise "
+             "(useful when the answer was generated to answer a specific question).",
+    )
     args = ap.parse_args()
 
     if args.answer == "-":
@@ -50,7 +56,7 @@ def main():
         threshold=args.threshold,
         top_k=args.top_k,
     )
-    report = guard.check(answer)
+    report = guard.check(answer, question=args.question)
 
     if args.format == "markdown":
         print(report.to_markdown())

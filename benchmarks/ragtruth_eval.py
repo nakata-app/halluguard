@@ -68,6 +68,7 @@ def load_examples(n_examples: int) -> list[dict]:
         cases.append(
             {
                 "context": ctx,
+                "question": q,
                 "answer": truthful,
                 "gold_hallucinated": False,
                 "task_type": "qa",
@@ -77,6 +78,7 @@ def load_examples(n_examples: int) -> list[dict]:
         cases.append(
             {
                 "context": ctx,
+                "question": q,
                 "answer": hallu,
                 "gold_hallucinated": True,
                 "task_type": "qa",
@@ -88,7 +90,7 @@ def load_examples(n_examples: int) -> list[dict]:
 
 def predict(guard: Guard, case: dict) -> bool:
     """Return True if the guard predicts the answer is hallucinated."""
-    report = guard.check(case["answer"])
+    report = guard.check(case["answer"], question=case.get("question"))
     if not report.claims:
         # Empty segmentation — treat as hallucinated (defensive)
         return True
