@@ -1,7 +1,7 @@
 """High-level Guard API."""
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Iterator
 
 from halluguard.report import Claim, ClaimStatus, SupportReport
 from halluguard.retriever import Chunk, CorpusIndex, chunk_documents
@@ -96,6 +96,49 @@ class Guard:
         )
         return cls(index=index, **kwargs)
 
+    def _check_claim_text(self, ct: str, question: str | None = None) -> Claim:
+        """Score a single claim text (no segmentation). Pulled out so
+        check() and check_stream() can share the gate logic.
+        """
+        hits = self.index.search(ct, top_k=self.top_k)
+        if not hits:
+            return Claim(
+                text=ct, status=ClaimStatus.HALLUCINATION_FLAG, support_score=0.0
+            )
+        best_score = hits[0][1]
+        citation_ids = [c.id for c, _ in hits[: max(1, self.top_k // 2 + 1)]]
+        cosine_pass = best_score >= self.threshold
+        entail_pass = True
+        entail_votes: int | None = None
+        entail_chunks: int | None = None
+        if self.verifier is not None and cosine_pass:
+            top_chunk_texts = [c.text for c, _ in hits]
+            vr = self.verifier.verify(
+                ct,
+                top_chunk_texts,
+                question=question,
+                vote_threshold=self.entail_threshold,
+            )
+            entail_pass = (
+                vr.entailment >= self.entail_threshold
+                and vr.entail_votes >= self.min_entail_votes
+            )
+            entail_votes = vr.entail_votes
+            entail_chunks = vr.n_chunks
+        status = (
+            ClaimStatus.SUPPORTED
+            if (cosine_pass and entail_pass)
+            else ClaimStatus.HALLUCINATION_FLAG
+        )
+        return Claim(
+            text=ct,
+            status=status,
+            support_score=best_score,
+            citation_ids=citation_ids if status == ClaimStatus.SUPPORTED else [],
+            entail_votes=entail_votes,
+            entail_chunks=entail_chunks,
+        )
+
     def check(self, answer: str, question: str | None = None) -> SupportReport:
         """Check `answer` against the indexed corpus.
 
@@ -113,43 +156,39 @@ class Guard:
                     Claim(text=ct, status=ClaimStatus.HALLUCINATION_FLAG, support_score=0.0)
                 )
                 continue
-            best_score = hits[0][1]
-            citation_ids = [c.id for c, _ in hits[: max(1, self.top_k // 2 + 1)]]
-
-            # Stage 1: cosine threshold gate
-            cosine_pass = best_score >= self.threshold
-            # Stage 2: NLI entailment (optional, only when cosine passes — cheaper)
-            entail_pass = True
-            entail_votes: int | None = None
-            entail_chunks: int | None = None
-            if self.verifier is not None and cosine_pass:
-                top_chunk_texts = [c.text for c, _ in hits]
-                vr = self.verifier.verify(
-                    ct,
-                    top_chunk_texts,
-                    question=question,
-                    vote_threshold=self.entail_threshold,
-                )
-                entail_pass = (
-                    vr.entailment >= self.entail_threshold
-                    and vr.entail_votes >= self.min_entail_votes
-                )
-                entail_votes = vr.entail_votes
-                entail_chunks = vr.n_chunks
-
-            status = (
-                ClaimStatus.SUPPORTED
-                if (cosine_pass and entail_pass)
-                else ClaimStatus.HALLUCINATION_FLAG
-            )
-            claims.append(
-                Claim(
-                    text=ct,
-                    status=status,
-                    support_score=best_score,
-                    citation_ids=citation_ids if status == ClaimStatus.SUPPORTED else [],
-                    entail_votes=entail_votes,
-                    entail_chunks=entail_chunks,
-                )
-            )
+            claims.append(self._check_claim_text(ct, question))
         return SupportReport(answer=answer, claims=claims, threshold=self.threshold)
+
+    def check_stream(
+        self,
+        answer_chunks: Iterable[str],
+        question: str | None = None,
+    ) -> Iterator[Claim]:
+        """Streaming variant of `check`.
+
+        Feeds answer text in pieces (e.g. tokens or substrings as an LLM
+        emits them), buffers until the segmenter produces a complete
+        sentence, and yields a Claim per completed sentence. Useful for
+        live LLM responses where waiting for the full answer is too slow
+        — flag a hallucinated sentence the moment it lands.
+
+        The final partial fragment is flushed when the iterator ends.
+
+        Note: each yielded Claim carries the same metadata as
+        `check()` claims (entail_votes, citation_ids, etc.). Aggregating
+        the claims into a SupportReport is the caller's responsibility
+        if a final summary is needed.
+        """
+        buf = ""
+        for chunk in answer_chunks:
+            buf += chunk
+            sentences = list(self.segmenter(buf))
+            if len(sentences) <= 1:
+                continue
+            # Yield all but the last sentence (which may still be partial)
+            for s in sentences[:-1]:
+                yield self._check_claim_text(s, question)
+            buf = sentences[-1]
+        # Flush remainder
+        if buf.strip():
+            yield self._check_claim_text(buf, question)

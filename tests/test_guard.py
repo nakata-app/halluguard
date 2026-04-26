@@ -304,6 +304,40 @@ def test_trust_score_empty_claims_is_zero():
     assert report.trust_score == 0.0
 
 
+def test_check_stream_yields_per_sentence_as_chunks_arrive():
+    """Feed answer in 4 pieces; expect Claims to be yielded one-per-sentence
+    as soon as each sentence boundary is reached, not all at the end."""
+    docs = ["postgres handles json natively"]
+    guard = Guard.from_documents(documents=docs, encoder=FakeEncoder(), threshold=0.1)
+    chunks = ["postgres handles ", "json. it scales ", "well for transactional ", "workloads."]
+    claims = list(guard.check_stream(chunks))
+    # Two complete sentences expected
+    assert len(claims) == 2
+    assert "postgres handles json" in claims[0].text
+
+
+def test_check_stream_flushes_trailing_partial_sentence():
+    """If the stream ends mid-sentence (no terminal punctuation), the buffer
+    must still be flushed as a final claim."""
+    docs = ["postgres handles json"]
+    guard = Guard.from_documents(documents=docs, encoder=FakeEncoder(), threshold=0.1)
+    chunks = ["postgres handles json"]  # no trailing period
+    claims = list(guard.check_stream(chunks))
+    assert len(claims) == 1
+    assert "postgres handles json" in claims[0].text
+
+
+def test_check_stream_produces_same_claims_as_check_when_complete():
+    """Streaming the full answer in one chunk should produce the same
+    claim sequence as the non-streaming check()."""
+    docs = ["postgres handles json"]
+    guard = Guard.from_documents(documents=docs, encoder=FakeEncoder(), threshold=0.1)
+    answer = "postgres handles json. unrelated llamas live on mars."
+    streamed = [c.text for c in guard.check_stream([answer])]
+    non_stream = [c.text for c in guard.check(answer).claims]
+    assert streamed == non_stream
+
+
 def test_to_dict_round_trips_through_json():
     """to_dict must serialise via json.dumps without TypeError."""
     import json
