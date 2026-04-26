@@ -116,6 +116,12 @@ def evaluate(
 
     Returns (tp, fp, tn, fn, per_task) where positive class = HALLUCINATED.
     per_task[task] = (tp, fp, tn, fn).
+
+    `encoder` is either a SentenceTransformer (default path) or a
+    callable / object that quacks like one — Guard.from_documents only
+    requires `encode(texts, normalize_embeddings, convert_to_numpy,
+    show_progress_bar, batch_size)`. Passing the AdaptMem-wrapped
+    encoder routes the bench through a domain-tuned bi-encoder.
     """
     tp = fp = tn = fn = 0
     per_task: dict[str, list[int]] = {}
@@ -180,7 +186,15 @@ def main():
     ap.add_argument(
         "--encoder",
         default="all-MiniLM-L6-v2",
-        help="sentence-transformers encoder",
+        help="sentence-transformers encoder (ignored when --adaptmem-model is set)",
+    )
+    ap.add_argument(
+        "--adaptmem-model",
+        default=None,
+        help="Path to a saved adaptmem model dir. When set, the bi-encoder "
+             "stage is replaced by AdaptMem.encoder (a domain-tuned model). "
+             "Useful for measuring the precision lift from domain "
+             "adaptation. Requires `pip install adaptmem`.",
     )
     ap.add_argument(
         "--device",
@@ -202,13 +216,34 @@ def main():
 
     from sentence_transformers import SentenceTransformer
 
-    print(
-        f"loading encoder {args.encoder} (device={args.device or 'auto'}) ...",
-        file=sys.stderr,
-        flush=True,
-    )
-    st_kwargs = {"device": args.device} if args.device else {}
-    encoder = SentenceTransformer(args.encoder, **st_kwargs)
+    if args.adaptmem_model is not None:
+        from adaptmem import AdaptMem
+
+        print(
+            f"loading adaptmem model {args.adaptmem_model} "
+            f"(device={args.device or 'config'}) ...",
+            file=sys.stderr,
+            flush=True,
+        )
+        am = AdaptMem.load(args.adaptmem_model)
+        if args.device:
+            # Override the saved device. Re-load the underlying ST on the
+            # requested device to honour the flag.
+            from pathlib import Path
+            am._model = SentenceTransformer(
+                str(Path(args.adaptmem_model) / "model"), device=args.device
+            )
+        encoder = am.encoder
+        encoder_label = f"adaptmem({args.adaptmem_model})"
+    else:
+        print(
+            f"loading encoder {args.encoder} (device={args.device or 'auto'}) ...",
+            file=sys.stderr,
+            flush=True,
+        )
+        st_kwargs = {"device": args.device} if args.device else {}
+        encoder = SentenceTransformer(args.encoder, **st_kwargs)
+        encoder_label = args.encoder
 
     verifier = None
     if args.nli:
@@ -238,7 +273,7 @@ def main():
         f"({n_total} cases)"
     )
     print(
-        f"# Encoder: {args.encoder}  |  NLI: {'on (' + args.nli_model + ')' if args.nli else 'off'}  "
+        f"# Encoder: {encoder_label}  |  NLI: {'on (' + args.nli_model + ')' if args.nli else 'off'}  "
         f"|  entail_threshold: {args.entail_threshold}  |  min_votes: {args.min_votes}"
     )
     print(f"# Positive class = HALLUCINATED")
