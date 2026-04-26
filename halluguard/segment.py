@@ -12,7 +12,11 @@ from typing import Callable, Iterable
 # Sentence boundary: period/exclamation/question followed by whitespace + capital letter
 # OR end of string. Tuned to avoid breaking on abbreviations like "e.g.", "Dr.", "vs.".
 _ABBREV = {"e.g.", "i.e.", "vs.", "etc.", "dr.", "mr.", "mrs.", "ms.", "st.", "sr.", "jr."}
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-ZĞÜŞİÖÇ])")
+# Split on sentence terminator + whitespace. We DON'T require the next char
+# to be uppercase — code-style identifiers ("tokio::spawn") and lowercase
+# starts (Markdown-rendered prose) would otherwise be missed.
+# Abbreviations are handled afterwards by re-merging on the abbrev list below.
+_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 
 def split_sentences(text: str) -> list[str]:
