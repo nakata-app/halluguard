@@ -100,19 +100,22 @@ We tried the public RAGTruth mirrors first (`wandb/RAGTruth`, `flagrant/RAGTruth
 
 | Pipeline | n cases | Threshold | Precision | Recall | F1 |
 |---|---|---|---|---|---|
-| Bi-encoder only | 200 | 0.70 | 0.451 | 0.790 | **0.575** |
-| Bi-encoder + NLI | 100 | 0.70 | 0.490 | **0.960** | **0.649** |
+| Bi-encoder only | 200 | 0.70 | 0.451 | 0.790 | 0.575 |
+| Bi-encoder + NLI | 200 | 0.70 | 0.490 | 0.960 | **0.649** |
+| Bi-encoder + NLI + question-aware premise | 100 | 0.70 | 0.489 | 0.920 | 0.639 |
 
-The numbers are **deliberately not cherry-picked**. F1 drops vs the synthetic suite (0.875 → 0.65). That gap is the real signal: HaluEval QA hallucinations are tight paraphrases that share most words with the context, so cosine alone is weak. NLI lifts recall from 0.79 → 0.96, but precision stalls at ~0.49 because the truthful answers also fail strict NLI entailment when the question phrasing doesn't literally appear in the knowledge snippet. The guard over-flags. Tightening `entail_threshold` and chunking the question separately are the obvious next levers.
+Latest run is `benchmarks/results_ragtruth_q_v1.json` — same Guard, but the NLI premise is now `f"Question: {q}\nContext: {chunk}"` instead of `chunk` alone. F1 is within noise of the older 200-case run (0.639 vs 0.649; ±1 case ≈ ±1pt on a 100-case sample). Recall held above 0.90; precision did not move much. Question-aware framing **did not collapse the false-positive ceiling on its own** — the bi-encoder still surfaces enough lexically-similar but semantically-irrelevant chunks that NLI rules them in.
 
-The honest takeaway: **halluguard catches almost every hallucination on a real benchmark, but at a high false-positive rate**. For real-world deployment you want it as a *flag-for-review* layer, not an auto-reject gate, until the entailment-vs-question-alignment trade-off is tuned.
+The honest takeaway: **halluguard catches almost every hallucination on a real benchmark, but at a high false-positive rate**. For real-world deployment you want it as a *flag-for-review* layer, not an auto-reject gate. The new `min_entail_votes` knob (require N of top-K to entail, not just one) is the lever for trading recall down for precision — that ablation isn't measured here yet.
 
 Default NLI model: `cross-encoder/nli-deberta-v3-base` (~440MB, lazy-loaded). Replaceable with any HuggingFace cross-encoder NLI checkpoint.
 
 Run yourself:
 ```bash
 pip install -e ".[bench]"
-python benchmarks/ragtruth_eval.py --n-examples 100 --nli
+# Apple silicon: pass --device cpu to bypass the MPS deadlock that
+# silently exits long NLI sweeps.
+python benchmarks/ragtruth_eval.py --n-examples 50 --nli --device cpu
 ```
 
 Larger benchmarks (full RAGTruth once a public mirror appears, FActScore) coming next.
