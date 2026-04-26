@@ -206,3 +206,82 @@ def test_guard_from_chunks_passes_kwargs_to_init():
     assert guard.top_k == 3
     assert guard.verifier is rv
     assert guard.min_entail_votes == 2
+
+
+# ---- from_adaptmem: bridge to adaptmem-tuned encoders ---------------------
+
+
+class _AdaptMemEntry:
+    """Duck-typed CorpusEntry stand-in (id + text)."""
+
+    def __init__(self, id: str, text: str):
+        self.id = id
+        self.text = text
+
+
+class _StubAdaptMem:
+    """Minimal AdaptMem-shaped object with the three properties Guard reads.
+
+    Avoids importing the real adaptmem package in halluguard's test
+    suite (which has no dep on adaptmem). The duck-typed contract is
+    what we want to lock down anyway.
+    """
+
+    def __init__(self, encoder, corpus, embeddings):
+        self.encoder = encoder
+        self.corpus = corpus
+        self.embeddings = embeddings
+
+
+def test_guard_from_adaptmem_reuses_precomputed_embeddings():
+    """The whole point of from_adaptmem is to skip re-encoding — assert
+    the encoder is *not* called for the corpus side. Query side still uses
+    it via search()."""
+    enc = FakeEncoder()
+    # Pre-compute the corpus embeddings ourselves so we know the matrix
+    # the index will use; assert the encoder's vocab grew only when query
+    # encoding happened, not corpus encoding.
+    import numpy as np
+    corpus = [
+        _AdaptMemEntry(id="x1", text="postgres handles json natively"),
+        _AdaptMemEntry(id="x2", text="redis is an in-memory cache"),
+    ]
+    pre = enc.encode([c.text for c in corpus])
+    pre_vocab = dict(enc.vocab)  # snapshot
+
+    am = _StubAdaptMem(encoder=enc, corpus=corpus, embeddings=pre)
+    guard = Guard.from_adaptmem(am, threshold=0.1)
+
+    # Index must hold the supplied embeddings (object identity, not a re-encode)
+    assert guard.index.embeddings is pre
+    # Index should preserve the user-supplied chunk ids
+    assert [c.id for c in guard.index.chunks] == ["x1", "x2"]
+    # Vocab snapshot before from_adaptmem matches: no extra encode happened
+    assert dict(enc.vocab) == pre_vocab
+
+
+def test_guard_from_adaptmem_uses_tuned_encoder_for_search():
+    """When a query comes in, the AdaptMem-tuned encoder is the one called."""
+    enc = FakeEncoder()
+    import numpy as np
+    corpus = [
+        _AdaptMemEntry(id="y1", text="postgres json"),
+        _AdaptMemEntry(id="y2", text="apple banana"),
+    ]
+    pre = enc.encode([c.text for c in corpus])
+    am = _StubAdaptMem(encoder=enc, corpus=corpus, embeddings=pre)
+    guard = Guard.from_adaptmem(am, threshold=0.1)
+    report = guard.check("postgres json query.")
+    # First claim should be SUPPORTED (cosine > 0.1 against y1)
+    assert report.claims[0].status == ClaimStatus.SUPPORTED
+    # Citation must come from the user-supplied corpus
+    assert any("y" in cid for cid in report.claims[0].citation_ids)
+
+
+def test_guard_from_adaptmem_rejects_uninitialised():
+    """Passing a fresh, untrained AdaptMem must error rather than crash
+    obscurely inside the retriever."""
+    am = _StubAdaptMem(encoder=None, corpus=[], embeddings=None)
+    import pytest
+    with pytest.raises(RuntimeError, match="not initialised"):
+        Guard.from_adaptmem(am)

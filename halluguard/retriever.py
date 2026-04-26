@@ -37,6 +37,28 @@ class CorpusIndex:
                 batch_size=64,
             )
 
+    @classmethod
+    def from_precomputed(
+        cls, chunks: list[Chunk], embeddings: np.ndarray, encoder: Any
+    ) -> "CorpusIndex":
+        """Build an index without re-encoding the corpus.
+
+        Use when an upstream tool (e.g. an adaptmem-tuned model) has already
+        produced an L2-normalised embedding matrix aligned with `chunks` —
+        the encoder is still kept around because `search()` needs it for
+        the query side.
+        """
+        if len(chunks) != embeddings.shape[0]:
+            raise ValueError(
+                f"chunks ({len(chunks)}) and embeddings ({embeddings.shape[0]}) "
+                "must have matching length"
+            )
+        idx = cls.__new__(cls)
+        idx.chunks = chunks
+        idx.encoder = encoder
+        idx.embeddings = embeddings
+        return idx
+
     def search(self, query: str, top_k: int = 5) -> list[tuple[Chunk, float]]:
         """Return top-k (chunk, cosine_score) by descending similarity."""
         if not self.chunks:

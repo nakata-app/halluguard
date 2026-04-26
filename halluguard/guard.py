@@ -66,6 +66,36 @@ class Guard:
         index = CorpusIndex(chunks, encoder=encoder)
         return cls(index=index, **kwargs)
 
+    @classmethod
+    def from_adaptmem(cls, am: Any, **kwargs: Any) -> "Guard":
+        """Build a Guard backed by an adaptmem-tuned encoder + its corpus.
+
+        Bridges adaptmem (domain-tuned retrieval) and halluguard (claim
+        verification): the bi-encoder gate uses the tuned model and the
+        already-encoded corpus, so retrieval reflects domain adaptation
+        rather than the generic baseline.
+
+        Hypothesis: a domain-tuned bi-encoder lifts cosine precision
+        because lexically-similar but semantically-irrelevant chunks
+        score lower → fewer false positives at the cosine gate → higher
+        downstream Guard precision after NLI. Measure on RAGTruth /
+        HaluEval QA before claiming the lift.
+
+        Duck-typed: any object exposing `encoder`, `corpus`
+        (list of objects with `id` and `text`), and `embeddings` works.
+        Pass adaptmem.AdaptMem instances, or any equivalent shim.
+        """
+        if am.encoder is None or am.embeddings is None:
+            raise RuntimeError(
+                "AdaptMem instance is not initialised — call .train() or "
+                ".load() before passing it to Guard.from_adaptmem()."
+            )
+        chunks = [Chunk(id=c.id, text=c.text) for c in am.corpus]
+        index = CorpusIndex.from_precomputed(
+            chunks=chunks, embeddings=am.embeddings, encoder=am.encoder
+        )
+        return cls(index=index, **kwargs)
+
     def check(self, answer: str, question: str | None = None) -> SupportReport:
         """Check `answer` against the indexed corpus.
 
