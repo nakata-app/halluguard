@@ -5,6 +5,7 @@ Same model you use for normal RAG. Built once, queried many times.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -22,7 +23,7 @@ class CorpusIndex:
     the API contract (`encode`, `search`) stays the same.
     """
 
-    def __init__(self, chunks: list[Chunk], encoder):
+    def __init__(self, chunks: list[Chunk], encoder: Any) -> None:
         self.chunks = chunks
         self.encoder = encoder
         if not chunks:

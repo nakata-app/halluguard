@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(prog="halluguard")
     ap.add_argument("answer", help="path to answer text file (or '-' for stdin)")
     grp = ap.add_mutually_exclusive_group(required=True)

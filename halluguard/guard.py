@@ -1,7 +1,7 @@
 """High-level Guard API."""
 from __future__ import annotations
 
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 from halluguard.report import Claim, ClaimStatus, SupportReport
 from halluguard.retriever import Chunk, CorpusIndex, chunk_documents
@@ -50,17 +50,19 @@ class Guard:
     def from_documents(
         cls,
         documents: list[str],
-        encoder,
+        encoder: Any,
         chunk_size: int = 200,
         chunk_overlap: int = 50,
-        **kwargs,
+        **kwargs: Any,
     ) -> "Guard":
         chunks = chunk_documents(documents, chunk_size=chunk_size, overlap=chunk_overlap)
         index = CorpusIndex(chunks, encoder=encoder)
         return cls(index=index, **kwargs)
 
     @classmethod
-    def from_chunks(cls, chunks: list[Chunk], encoder, **kwargs) -> "Guard":
+    def from_chunks(
+        cls, chunks: list[Chunk], encoder: Any, **kwargs: Any
+    ) -> "Guard":
         index = CorpusIndex(chunks, encoder=encoder)
         return cls(index=index, **kwargs)
 
