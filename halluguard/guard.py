@@ -32,6 +32,7 @@ class Guard:
         segmenter: Segmenter | None = None,
         verifier: NLIVerifier | None = None,
         entail_threshold: float = 0.5,
+        min_entail_votes: int = 1,
     ):
         self.index = index
         self.threshold = threshold
@@ -39,6 +40,11 @@ class Guard:
         self.segmenter: Callable[[str], Iterable[str]] = segmenter or split_sentences
         self.verifier = verifier
         self.entail_threshold = entail_threshold
+        # Multi-evidence vote: at least this many top-K chunks must clear
+        # `entail_threshold` for the claim to count as SUPPORTED. `1` keeps
+        # the existing max-only behaviour (any single passing chunk wins);
+        # raise to e.g. 2 for a stricter "agreement of two" policy.
+        self.min_entail_votes = min_entail_votes
 
     @classmethod
     def from_documents(
@@ -84,8 +90,16 @@ class Guard:
             entail_pass = True
             if self.verifier is not None and cosine_pass:
                 top_chunk_texts = [c.text for c, _ in hits]
-                vr = self.verifier.verify(ct, top_chunk_texts, question=question)
-                entail_pass = vr.entailment >= self.entail_threshold
+                vr = self.verifier.verify(
+                    ct,
+                    top_chunk_texts,
+                    question=question,
+                    vote_threshold=self.entail_threshold,
+                )
+                entail_pass = (
+                    vr.entailment >= self.entail_threshold
+                    and vr.entail_votes >= self.min_entail_votes
+                )
 
             status = (
                 ClaimStatus.SUPPORTED

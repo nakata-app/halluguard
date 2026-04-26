@@ -83,3 +83,57 @@ def test_guard_check_default_question_is_none():
     )
     guard.check("postgres handles json well.")
     assert rv.calls and rv.calls[0]["question"] is None
+
+
+class _FixedVerifier:
+    """Returns a fixed VerifierResult — used to drive vote-policy logic."""
+
+    def __init__(self, result: VerifierResult):
+        self.result = result
+
+    def verify(self, claim, chunks, question=None, vote_threshold=0.5):
+        return self.result
+
+
+def test_guard_min_votes_blocks_when_only_one_chunk_entails():
+    # Verifier returns: high max entailment but only 1 vote out of 5
+    vr = VerifierResult(entailment=0.95, contradiction=0.0, entail_votes=1, n_chunks=5)
+    guard = Guard.from_documents(
+        documents=["postgres is good for json"],
+        encoder=FakeEncoder(),
+        threshold=0.1,
+        verifier=_FixedVerifier(vr),
+        entail_threshold=0.5,
+        min_entail_votes=2,  # require at least 2 chunks to entail
+    )
+    report = guard.check("postgres handles json.")
+    # Single supporting chunk falls below the 2-vote requirement → flagged
+    assert report.claims[0].status == ClaimStatus.HALLUCINATION_FLAG
+
+
+def test_guard_min_votes_allows_when_enough_chunks_entail():
+    vr = VerifierResult(entailment=0.95, contradiction=0.0, entail_votes=3, n_chunks=5)
+    guard = Guard.from_documents(
+        documents=["postgres is good for json"],
+        encoder=FakeEncoder(),
+        threshold=0.1,
+        verifier=_FixedVerifier(vr),
+        entail_threshold=0.5,
+        min_entail_votes=2,
+    )
+    report = guard.check("postgres handles json.")
+    assert report.claims[0].status == ClaimStatus.SUPPORTED
+
+
+def test_guard_default_min_votes_preserves_legacy_behaviour():
+    # Default min_entail_votes=1 — a single passing chunk should be enough
+    vr = VerifierResult(entailment=0.95, contradiction=0.0, entail_votes=1, n_chunks=5)
+    guard = Guard.from_documents(
+        documents=["postgres is good for json"],
+        encoder=FakeEncoder(),
+        threshold=0.1,
+        verifier=_FixedVerifier(vr),
+        entail_threshold=0.5,
+    )
+    report = guard.check("postgres handles json.")
+    assert report.claims[0].status == ClaimStatus.SUPPORTED
