@@ -38,6 +38,13 @@ def test_cli_help_lists_all_flags():
         assert flag in out.stdout, f"missing flag in --help: {flag}"
 
 
+def test_cli_help_format_lists_json():
+    """--format choices must include 'json' — programmatic consumers depend on it."""
+    out = _run(["--help"])
+    assert out.returncode == 0
+    assert "json" in out.stdout
+
+
 def test_cli_no_corpus_source_errors(tmp_path: Path):
     answer_file = tmp_path / "ans.txt"
     answer_file.write_text("x.")

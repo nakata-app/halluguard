@@ -285,3 +285,35 @@ def test_guard_from_adaptmem_rejects_uninitialised():
     import pytest
     with pytest.raises(RuntimeError, match="not initialised"):
         Guard.from_adaptmem(am)
+
+
+# ---- trust score + to_dict serialisation ---------------------------------
+
+
+def test_trust_score_is_mean_support_across_claims():
+    docs = ["postgres handles json"]
+    guard = Guard.from_documents(documents=docs, encoder=FakeEncoder(), threshold=0.1)
+    report = guard.check("postgres json. unrelated llamas on mars.")
+    # First claim should land high (overlap), second very low — mean somewhere mid
+    assert 0.0 < report.trust_score < 1.0
+
+
+def test_trust_score_empty_claims_is_zero():
+    guard = Guard.from_documents(documents=["doc"], encoder=FakeEncoder())
+    report = guard.check("")
+    assert report.trust_score == 0.0
+
+
+def test_to_dict_round_trips_through_json():
+    """to_dict must serialise via json.dumps without TypeError."""
+    import json
+    docs = ["postgres handles json"]
+    guard = Guard.from_documents(documents=docs, encoder=FakeEncoder(), threshold=0.1)
+    report = guard.check("postgres handles json.")
+    d = report.to_dict()
+    s = json.dumps(d)  # must not raise
+    parsed = json.loads(s)
+    assert parsed["n_claims"] == 1
+    assert parsed["claims"][0]["status"] in ("SUPPORTED", "HALLUCINATION_FLAG")
+    assert "trust_score" in parsed
+    assert "threshold" in parsed

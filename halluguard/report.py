@@ -85,3 +85,41 @@ class SupportReport:
         for c in self.claims:
             lines.append("  " + str(c))
         return "\n".join(lines)
+
+    @property
+    def trust_score(self) -> float:
+        """Response-level scalar in [0, 1] suitable for routing / gating.
+
+        Mean of `support_score` across claims. 1.0 = every claim aligns
+        with the corpus; 0.0 = no support at all. Empty answer → 0.0.
+        """
+        if not self.claims:
+            return 0.0
+        return sum(c.support_score for c in self.claims) / len(self.claims)
+
+    def to_dict(self) -> dict:
+        """JSON-ready representation. Suitable for `json.dumps`.
+
+        Useful as the wire format for middleware / CI / dashboards that
+        want to gate on `trust_score` or inspect individual flagged claims.
+        """
+        return {
+            "answer": self.answer,
+            "threshold": self.threshold,
+            "n_claims": len(self.claims),
+            "n_supported": self.n_supported,
+            "n_flagged": self.n_flagged,
+            "support_rate": self.support_rate,
+            "trust_score": self.trust_score,
+            "claims": [
+                {
+                    "text": c.text,
+                    "status": c.status.value,
+                    "support_score": c.support_score,
+                    "citation_ids": list(c.citation_ids),
+                    "entail_votes": c.entail_votes,
+                    "entail_chunks": c.entail_chunks,
+                }
+                for c in self.claims
+            ],
+        }

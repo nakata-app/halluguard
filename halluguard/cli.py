@@ -30,7 +30,7 @@ def main() -> None:
     ap.add_argument("--top-k", type=int, default=5)
     ap.add_argument("--chunk-size", type=int, default=200)
     ap.add_argument("--chunk-overlap", type=int, default=50)
-    ap.add_argument("--format", choices=["markdown", "plain"], default="markdown")
+    ap.add_argument("--format", choices=["markdown", "plain", "json"], default="markdown")
     ap.add_argument(
         "--question",
         default=None,
@@ -111,6 +111,9 @@ def main() -> None:
 
     if args.format == "markdown":
         print(report.to_markdown())
+    elif args.format == "json":
+        import json as _json
+        print(_json.dumps(report.to_dict(), indent=2))
     else:
         print(str(report))
 
