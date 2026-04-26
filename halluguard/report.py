@@ -1,0 +1,70 @@
+"""Result types: Claim, SupportReport."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class ClaimStatus(str, Enum):
+    SUPPORTED = "SUPPORTED"
+    HALLUCINATION_FLAG = "HALLUCINATION_FLAG"
+
+
+@dataclass
+class Claim:
+    text: str
+    status: ClaimStatus
+    support_score: float
+    """Best alignment score against retrieved corpus (0.0–1.0). Higher = more supported."""
+    citation_ids: list[str] = field(default_factory=list)
+    """Top-k corpus chunk ids that align with this claim, descending by score."""
+
+    def __str__(self) -> str:
+        cites = ", ".join(self.citation_ids) if self.citation_ids else "—"
+        return f"[{self.status.value:18s}] score={self.support_score:.3f} cites={cites}  {self.text!r}"
+
+
+@dataclass
+class SupportReport:
+    answer: str
+    claims: list[Claim]
+    threshold: float
+
+    @property
+    def n_supported(self) -> int:
+        return sum(1 for c in self.claims if c.status == ClaimStatus.SUPPORTED)
+
+    @property
+    def n_flagged(self) -> int:
+        return sum(1 for c in self.claims if c.status == ClaimStatus.HALLUCINATION_FLAG)
+
+    @property
+    def support_rate(self) -> float:
+        if not self.claims:
+            return 0.0
+        return self.n_supported / len(self.claims)
+
+    def to_markdown(self) -> str:
+        out = ["# Halluguard report", ""]
+        out.append(f"- claims: {len(self.claims)}")
+        out.append(f"- supported: {self.n_supported}")
+        out.append(f"- flagged: {self.n_flagged}")
+        out.append(f"- support rate: {self.support_rate:.1%}")
+        out.append(f"- threshold: {self.threshold:.2f}")
+        out.append("")
+        out.append("| status | score | cites | claim |")
+        out.append("|---|---|---|---|")
+        for c in self.claims:
+            cites = ", ".join(c.citation_ids) or "—"
+            text = c.text.replace("|", "\\|")
+            out.append(f"| {c.status.value} | {c.support_score:.3f} | {cites} | {text} |")
+        return "\n".join(out)
+
+    def __str__(self) -> str:
+        lines = [
+            f"SupportReport: {self.n_supported}/{len(self.claims)} supported "
+            f"({self.support_rate:.1%}), {self.n_flagged} flagged, threshold={self.threshold:.2f}"
+        ]
+        for c in self.claims:
+            lines.append("  " + str(c))
+        return "\n".join(lines)
