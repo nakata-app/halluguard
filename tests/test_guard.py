@@ -2,7 +2,19 @@
 from __future__ import annotations
 
 from halluguard import Guard, ClaimStatus
+from halluguard.verifier import VerifierResult
 from tests.test_retriever import FakeEncoder
+
+
+class _RecordingVerifier:
+    """Captures kwargs the Guard passes to verify()."""
+
+    def __init__(self):
+        self.calls: list[dict] = []
+
+    def verify(self, claim, chunks, question=None, vote_threshold=0.5):
+        self.calls.append({"claim": claim, "chunks": chunks, "question": question})
+        return VerifierResult(entailment=0.99, contradiction=0.0)
 
 
 def test_guard_flags_unsupported_claim():
@@ -47,3 +59,27 @@ def test_report_markdown_renders():
     md = guard.check("a sample claim. another claim.").to_markdown()
     assert "# Halluguard report" in md
     assert "claims:" in md
+
+
+def test_guard_check_propagates_question_to_verifier():
+    documents = ["postgres is great for json"]
+    rv = _RecordingVerifier()
+    guard = Guard.from_documents(
+        documents=documents,
+        encoder=FakeEncoder(),
+        threshold=0.1,  # loose so cosine gate passes and verifier runs
+        verifier=rv,
+    )
+    guard.check("postgres handles json well.", question="how does postgres handle json?")
+    assert rv.calls, "verifier should have been invoked"
+    assert rv.calls[0]["question"] == "how does postgres handle json?"
+
+
+def test_guard_check_default_question_is_none():
+    documents = ["postgres is great for json"]
+    rv = _RecordingVerifier()
+    guard = Guard.from_documents(
+        documents=documents, encoder=FakeEncoder(), threshold=0.1, verifier=rv
+    )
+    guard.check("postgres handles json well.")
+    assert rv.calls and rv.calls[0]["question"] is None

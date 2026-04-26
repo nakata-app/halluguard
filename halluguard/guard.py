@@ -58,7 +58,14 @@ class Guard:
         index = CorpusIndex(chunks, encoder=encoder)
         return cls(index=index, **kwargs)
 
-    def check(self, answer: str) -> SupportReport:
+    def check(self, answer: str, question: str | None = None) -> SupportReport:
+        """Check `answer` against the indexed corpus.
+
+        When `question` is given, it is forwarded to the NLI verifier as
+        extra premise context (`Question: {question}\\nContext: {chunk}`).
+        RAG-derived answers often restate the question implicitly; without
+        it, NLI can fail to align an otherwise correct answer-from-context.
+        """
         claim_texts = list(self.segmenter(answer))
         claims: list[Claim] = []
         for ct in claim_texts:
@@ -77,7 +84,7 @@ class Guard:
             entail_pass = True
             if self.verifier is not None and cosine_pass:
                 top_chunk_texts = [c.text for c, _ in hits]
-                vr = self.verifier.verify(ct, top_chunk_texts)
+                vr = self.verifier.verify(ct, top_chunk_texts, question=question)
                 entail_pass = vr.entailment >= self.entail_threshold
 
             status = (
