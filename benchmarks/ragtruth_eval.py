@@ -171,6 +171,13 @@ def main():
         default="all-MiniLM-L6-v2",
         help="sentence-transformers encoder",
     )
+    ap.add_argument(
+        "--device",
+        default=None,
+        help="Force PyTorch device for both encoder and NLI verifier "
+             "('cpu', 'cuda', 'mps'). Default = autodetect. Pass 'cpu' to "
+             "bypass MPS deadlocks observed on Apple silicon.",
+    )
     args = ap.parse_args()
 
     cases = load_examples(args.n_examples)
@@ -184,8 +191,13 @@ def main():
 
     from sentence_transformers import SentenceTransformer
 
-    print(f"loading encoder {args.encoder} ...", file=sys.stderr, flush=True)
-    encoder = SentenceTransformer(args.encoder)
+    print(
+        f"loading encoder {args.encoder} (device={args.device or 'auto'}) ...",
+        file=sys.stderr,
+        flush=True,
+    )
+    st_kwargs = {"device": args.device} if args.device else {}
+    encoder = SentenceTransformer(args.encoder, **st_kwargs)
 
     verifier = None
     if args.nli:
@@ -193,8 +205,16 @@ def main():
 
         print(f"loading NLI cross-encoder {args.nli_model} ...", file=sys.stderr, flush=True)
         verifier = NLIVerifier(model_name=args.nli_model)
-        # Force model load now so timing in the sweep is fair
-        verifier._ensure_model()
+        # Force model load now so timing in the sweep is fair. Honour the
+        # device flag by replacing the lazy CrossEncoder constructor — the
+        # NLIVerifier abstraction does not expose device, so we patch the
+        # already-constructed model here. Safe because verify() only uses
+        # `_model.predict(...)` which is device-agnostic at the call site.
+        if args.device:
+            from sentence_transformers import CrossEncoder
+            verifier._model = CrossEncoder(args.nli_model, device=args.device)
+        else:
+            verifier._ensure_model()
 
     if args.threshold is not None:
         thresholds = [args.threshold]
