@@ -18,10 +18,25 @@ class Claim:
     """Best alignment score against retrieved corpus (0.0–1.0). Higher = more supported."""
     citation_ids: list[str] = field(default_factory=list)
     """Top-k corpus chunk ids that align with this claim, descending by score."""
+    entail_votes: int | None = None
+    """How many of the top-K chunks cleared the entailment threshold. `None`
+    means the NLI verifier was not invoked (cosine-only mode or cosine-failed
+    short-circuit)."""
+    entail_chunks: int | None = None
+    """Top-K size the verifier scored against (denominator for entail_votes)."""
+
+    @property
+    def vote_str(self) -> str:
+        if self.entail_votes is None or self.entail_chunks is None:
+            return "—"
+        return f"{self.entail_votes}/{self.entail_chunks}"
 
     def __str__(self) -> str:
         cites = ", ".join(self.citation_ids) if self.citation_ids else "—"
-        return f"[{self.status.value:18s}] score={self.support_score:.3f} cites={cites}  {self.text!r}"
+        return (
+            f"[{self.status.value:18s}] score={self.support_score:.3f} "
+            f"votes={self.vote_str} cites={cites}  {self.text!r}"
+        )
 
 
 @dataclass
@@ -52,12 +67,14 @@ class SupportReport:
         out.append(f"- support rate: {self.support_rate:.1%}")
         out.append(f"- threshold: {self.threshold:.2f}")
         out.append("")
-        out.append("| status | score | cites | claim |")
-        out.append("|---|---|---|---|")
+        out.append("| status | score | votes | cites | claim |")
+        out.append("|---|---|---|---|---|")
         for c in self.claims:
             cites = ", ".join(c.citation_ids) or "—"
             text = c.text.replace("|", "\\|")
-            out.append(f"| {c.status.value} | {c.support_score:.3f} | {cites} | {text} |")
+            out.append(
+                f"| {c.status.value} | {c.support_score:.3f} | {c.vote_str} | {cites} | {text} |"
+            )
         return "\n".join(out)
 
     def __str__(self) -> str:

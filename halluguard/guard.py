@@ -88,6 +88,8 @@ class Guard:
             cosine_pass = best_score >= self.threshold
             # Stage 2: NLI entailment (optional, only when cosine passes — cheaper)
             entail_pass = True
+            entail_votes: int | None = None
+            entail_chunks: int | None = None
             if self.verifier is not None and cosine_pass:
                 top_chunk_texts = [c.text for c, _ in hits]
                 vr = self.verifier.verify(
@@ -100,6 +102,8 @@ class Guard:
                     vr.entailment >= self.entail_threshold
                     and vr.entail_votes >= self.min_entail_votes
                 )
+                entail_votes = vr.entail_votes
+                entail_chunks = vr.n_chunks
 
             status = (
                 ClaimStatus.SUPPORTED
@@ -112,6 +116,8 @@ class Guard:
                     status=status,
                     support_score=best_score,
                     citation_ids=citation_ids if status == ClaimStatus.SUPPORTED else [],
+                    entail_votes=entail_votes,
+                    entail_chunks=entail_chunks,
                 )
             )
         return SupportReport(answer=answer, claims=claims, threshold=self.threshold)

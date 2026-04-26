@@ -137,3 +137,26 @@ def test_guard_default_min_votes_preserves_legacy_behaviour():
     )
     report = guard.check("postgres handles json.")
     assert report.claims[0].status == ClaimStatus.SUPPORTED
+
+
+def test_claim_carries_vote_metadata_when_verifier_runs():
+    vr = VerifierResult(entailment=0.95, contradiction=0.0, entail_votes=3, n_chunks=5)
+    guard = Guard.from_documents(
+        documents=["postgres is good for json"],
+        encoder=FakeEncoder(),
+        threshold=0.1,
+        verifier=_FixedVerifier(vr),
+        entail_threshold=0.5,
+    )
+    claim = guard.check("postgres handles json.").claims[0]
+    assert claim.entail_votes == 3
+    assert claim.entail_chunks == 5
+    assert claim.vote_str == "3/5"
+
+
+def test_claim_vote_metadata_none_without_verifier():
+    guard = Guard.from_documents(documents=["postgres"], encoder=FakeEncoder())
+    claim = guard.check("postgres is good.").claims[0]
+    assert claim.entail_votes is None
+    assert claim.entail_chunks is None
+    assert claim.vote_str == "—"
