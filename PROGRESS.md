@@ -115,23 +115,29 @@ The lever that *should* trade recall for precision is `min_entail_votes`
   python -c "from halluguard import Guard; g = Guard.from_daemon(['doc'], 'http://127.0.0.1:7800')"
   ```
 
-## Commit log highlights (this session)
+## Timeline
 
-```
-2f42a71 README: add question-aware RAGTruth row + commit results JSON
-b26f870 cli: --corpus-text and --corpus-file alternatives to --corpus dir
-57c1889 bench: --device flag for ragtruth_eval (CPU forcing)
-49c266e test: CLI subprocess smoke tests
-4298373 ci: GitHub Actions matrix (py 3.10/3.11/3.12)
-6c48739 package: ship py.typed marker (PEP 561)
-66b77c0 report: surface entail_votes/entail_chunks on Claim + markdown
-10acbf6 cli: surface --nli, --entail-threshold, --min-votes
-06ff16f guard: vote-based policy on top of max-entailment gate
-b6b51aa cli/bench: thread question through CLI + RAGTruth bench
-5a76603 guard: forward question to verifier in Guard.check()
-6ce41a6 test: fix tests/test_guard.py collection error
-69cf032 verifier: question-aware NLI premise + multi-evidence vote count + tests
-```
+- **2026-04-26** — v0.2-ext shipped (question-aware NLI, vote policy,
+  Claim metadata, full CLI surface, CI matrix, py.typed, 34 tests).
+- **2026-04-27 morning** — v0.2-prod (trust_score + JSON CLI +
+  check_stream + Guard.from_adaptmem + release.yml + mypy --strict +
+  timing bench, 47 tests).
+- **2026-04-27 noon** — v0.2-prod-daemon (Guard.from_daemon +
+  DaemonEncoder, 52 tests).
+- **2026-04-27 afternoon** — `nakata-app/halluguard` public on GitHub,
+  `v0.3.1` shipped on PyPI (`pip install halluguard`), `[daemon]`
+  optional dep gated `requests`.
 
-13 commits on top of `400d789` (the previous tip). All shipped to
-`master` locally.
+## Open / next session
+
+1. **PyPI token rotate** — first session token was pasted in chat, low
+   risk but rotate per best practice. Need atakan to create a new
+   token in PyPI; the secret update is a one-liner.
+2. **RAGTruth public mirror** — periodic HF Hub probe; when one lands,
+   span-level eval and vote-ablation v2 unlock.
+3. **FActScore bench** — original `shmsw25/FActScore` repo only;
+   third-party HF Hub mirrors are unverified. Treat like RAGTruth.
+4. **Cross-repo integration test** — pytest fixture spawning
+   `adaptmem serve` as a subprocess, hitting `Guard.from_daemon`
+   end-to-end. Linux-only (Mac sentence-transformers + uvicorn
+   deadlock).

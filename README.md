@@ -4,6 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/halluguard.svg)](https://pypi.org/project/halluguard/)
 [![License: MIT](https://img.shields.io/pypi/l/halluguard.svg)](LICENSE)
 [![CI](https://github.com/nakata-app/halluguard/actions/workflows/ci.yml/badge.svg)](https://github.com/nakata-app/halluguard/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/nakata-app/halluguard/graph/badge.svg)](https://codecov.io/gh/nakata-app/halluguard)
 
 **Reverse RAG hallucination detector.** No LLM judge. Vendor-neutral. Real-time.
 
