@@ -1,19 +1,26 @@
 # halluguard — progress & resume notes
 
-**Last updated:** 2026-04-26 (post-Claude-session, before reboot).
+**Last updated:** 2026-04-27 (public-push session).
 
 This file is the resume contract: open the repo, read this, you know the
 state of play. Updated at the end of each working session.
+
+**Public:** https://github.com/nakata-app/halluguard (master, MIT, CI green).
 
 ## Where we are
 
 ```
 v0.1 skeleton           ████████████  done  (segment + retriever + report)
 v0.2 NLI verifier       ████████████  done  (NLI + RAGTruth bench + honest numbers)
-v0.2-ext (this session) ████████████  done  (question-aware + vote + Claim metadata
+v0.2-ext                ████████████  done  (question-aware + vote + Claim metadata
                                              + CLI surface + smoke tests + CI + py.typed)
-v0.3 ablation + real    ███░░░░░░░░░  ~25%  (vote ablation, RAGTruth public mirror,
-                                             FActScore, sentence-level labels)
+v0.2-prod               ████████████  done  (trust_score + JSON CLI + check_stream
+                                             + from_adaptmem + release.yml + mypy --strict
+                                             + timing bench)
+v0.3 ablation + real    ████░░░░░░░░  ~30%  (vote ablation done = honest null on HaluEval
+                                             QA; RAGTruth mirror still dead, FActScore
+                                             dataset state messy, sentence-level labels
+                                             pending)
 ```
 
 ## Bench results — what's actually committed
@@ -79,32 +86,28 @@ The lever that *should* trade recall for precision is `min_entail_votes`
 
 ## How to resume (next session)
 
-1. Read this file + `README.md`.
-2. First v0.3 task = vote ablation:
-   - Add `--min-votes` flag to `benchmarks/ragtruth_eval.py` (forwards
-     to `Guard(min_entail_votes=...)`). Single arg + propagation, ~10
-     line change.
-   - Run sweep:
-     ```
-     python benchmarks/ragtruth_eval.py --n-examples 50 --nli \
-         --device cpu --threshold 0.70 --min-votes 1
-     # repeat with --min-votes 2 and 3
-     ```
-   - Write `benchmarks/results_ragtruth_vote_v1.json` with the three
-     rows.
-   - Update README table with the precision lift (expected: P=0.49 →
-     0.55+ at votes=2, F1 trade-off TBD).
-3. After ablation, decide whether to:
-   - Push for FActScore (broader validation), OR
-   - Wait on RAGTruth public mirror, OR
-   - Cut a v0.2 → v0.3 release (PyPI).
+1. Read this file + `README.md` + `ROADMAP.md`.
+2. Vote ablation done (committed result_ragtruth_vote_v1.json) — **honest
+   null result** on HaluEval QA: vote=2/3 collapses into a flag-everything
+   classifier because every HaluEval QA case has a 1-chunk corpus. The
+   right test bed is RAGTruth multi-chunk, but all 4 mirrors are still
+   dead as of 2026-04. Periodic `huggingface_hub` probe is the pragmatic
+   answer.
+3. FActScore dataset state on HF Hub is messy — original `shmsw25/FActScore`
+   paper repo, only third-party copies on Hub (`dskar/FActScore`, etc).
+   Treat like RAGTruth: blocked on upstream.
+4. Open work that is NOT data-blocked:
+   - Sentence-level span labels (RAGTruth shape) — still data-blocked.
+   - Per-task-type breakdown — still data-blocked.
+   - **PyPI release** (Atakan token).
 
 ## Toolchain
 
-- Same shared venv as adaptmem:
+- Same shared venv as adaptmem + claimcheck:
   `~/Projects/metis-pair/benchmarks/.venv`.
 - Tests: `cd ~/Projects/halluguard && ../metis-pair/benchmarks/.venv/bin/pytest -q`
-- Current suite: **34/34 pass**.
+- Current suite: **47/47 pass**, lint clean, mypy --strict clean.
+- Timing bench: `python benchmarks/timing_bench.py --n 30 --out benchmarks/results_timing.json`
 
 ## Commit log highlights (this session)
 
