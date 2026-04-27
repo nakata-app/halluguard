@@ -241,7 +241,6 @@ def test_guard_from_adaptmem_reuses_precomputed_embeddings():
     # Pre-compute the corpus embeddings ourselves so we know the matrix
     # the index will use; assert the encoder's vocab grew only when query
     # encoding happened, not corpus encoding.
-    import numpy as np
     corpus = [
         _AdaptMemEntry(id="x1", text="postgres handles json natively"),
         _AdaptMemEntry(id="x2", text="redis is an in-memory cache"),
@@ -263,7 +262,6 @@ def test_guard_from_adaptmem_reuses_precomputed_embeddings():
 def test_guard_from_adaptmem_uses_tuned_encoder_for_search():
     """When a query comes in, the AdaptMem-tuned encoder is the one called."""
     enc = FakeEncoder()
-    import numpy as np
     corpus = [
         _AdaptMemEntry(id="y1", text="postgres json"),
         _AdaptMemEntry(id="y2", text="apple banana"),
