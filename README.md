@@ -105,6 +105,32 @@ for claim in report.claims:
   `"Question: {q}\nContext: {chunk}"`. Useful when answers were generated to answer
   a specific question; without it, NLI can fail to align answer-from-context patterns.
 
+### Daemon mode (`Guard.from_daemon`)
+
+For deployments where you don't want each Python process to load its own
+SentenceTransformer (claimcheck + halluguard + a third service would
+otherwise each pay the same MiniLM cost), point Guard at a long-lived
+[`adaptmem serve`](https://github.com/nakata-app/adaptmem#daemon-mode-adaptmem-serve)
+process:
+
+```python
+from halluguard import Guard
+from halluguard.verifier import NLIVerifier
+
+# Daemon must be running: `adaptmem serve --port 7800`
+guard = Guard.from_daemon(
+    documents=["..."],
+    daemon_url="http://127.0.0.1:7800",
+    verifier=NLIVerifier(),
+)
+report = guard.check("an answer", question="...")
+```
+
+`Guard.from_daemon` calls `/healthz` first so a misconfigured URL fails
+loudly at construction time. The retriever and NLI verifier still run
+locally; only the encoder hop crosses HTTP. For a Unix-socket daemon
+(zero TCP overhead), pass `daemon_url="http+unix:///tmp/adaptmem.sock"`.
+
 ### CLI
 
 ```bash
