@@ -34,7 +34,8 @@ class DaemonEncoder:
     def __init__(self, daemon_url: str = "http://127.0.0.1:7800", timeout_s: float = 10.0) -> None:
         if importlib.util.find_spec("requests") is None:
             raise SystemExit(
-                "DaemonEncoder requires `requests`. Install with `pip install requests`."
+                "DaemonEncoder requires `requests`. Install with "
+                '`pip install "halluguard[daemon]"` or `pip install requests`.'
             )
         self.daemon_url = daemon_url.rstrip("/")
         self.timeout_s = timeout_s

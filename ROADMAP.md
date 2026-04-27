@@ -1,6 +1,6 @@
 # halluguard roadmap
 
-Status — `v0.2-ext` (April 26-27 2026): NLI verifier + question-aware premise + multi-evidence vote policy + Claim metadata + full CLI surface (`--question`, `--nli`, `--min-votes`, `--corpus-text`, `--corpus-file`) + `Guard.from_adaptmem` bridge + py.typed + GitHub Actions CI + 40 passing tests + four committed bench JSONs (synthetic, q-aware, FT-300 ablation, vote ablation). All `[Unreleased]` items in `CHANGELOG.md`.
+Status — `v0.3.1` shipped on PyPI (April 27 2026): NLI verifier + question-aware premise + multi-evidence vote policy + Claim metadata + full CLI surface (`--question`, `--nli`, `--min-votes`, `--corpus-text`, `--corpus-file`) + `Guard.from_adaptmem` bridge + **`Guard.from_daemon` + DaemonEncoder** (cross-process encoder sharing via `adaptmem serve`) + trust_score + JSON CLI + check_stream + py.typed + mypy --strict + GitHub Actions CI + 52 passing tests + committed bench JSONs (synthetic, q-aware, FT-300 ablation, vote ablation). Install: `pip install halluguard`.
 
 The path below picks up from there. Each milestone has a concrete exit criterion.
 

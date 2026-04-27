@@ -23,8 +23,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5", "requests>=2.32"]
 bench = ["datasets>=3.0"]
+daemon = ["requests>=2.32"]
 
 [project.scripts]
 halluguard = "halluguard.cli:main"

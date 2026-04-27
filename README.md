@@ -1,5 +1,10 @@
 # halluguard
 
+[![PyPI version](https://img.shields.io/pypi/v/halluguard.svg)](https://pypi.org/project/halluguard/)
+[![Python versions](https://img.shields.io/pypi/pyversions/halluguard.svg)](https://pypi.org/project/halluguard/)
+[![License: MIT](https://img.shields.io/pypi/l/halluguard.svg)](LICENSE)
+[![CI](https://github.com/nakata-app/halluguard/actions/workflows/ci.yml/badge.svg)](https://github.com/nakata-app/halluguard/actions/workflows/ci.yml)
+
 **Reverse RAG hallucination detector.** No LLM judge. Vendor-neutral. Real-time.
 
 ## The problem
