@@ -16,7 +16,7 @@ v0.2-ext                ████████████  done  (question-aw
                                              + CLI surface + smoke tests + CI + py.typed)
 v0.2-prod               ████████████  done  (trust_score + JSON CLI + check_stream
                                              + from_adaptmem + release.yml + mypy --strict
-                                             + timing bench)
+                                             + timing bench + Guard.from_daemon + DaemonEncoder)
 v0.3 ablation + real    ████░░░░░░░░  ~30%  (vote ablation done = honest null on HaluEval
                                              QA; RAGTruth mirror still dead, FActScore
                                              dataset state messy, sentence-level labels
@@ -106,8 +106,14 @@ The lever that *should* trade recall for precision is `min_entail_votes`
 - Same shared venv as adaptmem + claimcheck:
   `~/Projects/metis-pair/benchmarks/.venv`.
 - Tests: `cd ~/Projects/halluguard && ../metis-pair/benchmarks/.venv/bin/pytest -q`
-- Current suite: **47/47 pass**, lint clean, mypy --strict clean.
+- Current suite: **52/52 pass** (47 + 5 daemon), lint clean, mypy --strict clean.
 - Timing bench: `python benchmarks/timing_bench.py --n 30 --out benchmarks/results_timing.json`
+- Daemon mode (no per-process model load):
+  ```bash
+  pip install "adaptmem[server]"
+  adaptmem serve --port 7800
+  python -c "from halluguard import Guard; g = Guard.from_daemon(['doc'], 'http://127.0.0.1:7800')"
+  ```
 
 ## Commit log highlights (this session)
 
