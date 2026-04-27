@@ -39,7 +39,7 @@ class CorpusIndex:
 
     @classmethod
     def from_precomputed(
-        cls, chunks: list[Chunk], embeddings: np.ndarray, encoder: Any
+        cls, chunks: list[Chunk], embeddings: np.ndarray[Any, Any], encoder: Any
     ) -> "CorpusIndex":
         """Build an index without re-encoding the corpus.
 

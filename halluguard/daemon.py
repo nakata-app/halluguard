@@ -49,7 +49,7 @@ class DaemonEncoder:
         show_progress_bar: bool = False,
         batch_size: int = 64,
         **_: Any,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """POST /embed and return an `(n, dim)` numpy array."""
         import requests  # type: ignore[import-untyped]
 
@@ -79,7 +79,7 @@ class DaemonEncoder:
             )
 
         body = resp.json()
-        embeddings: np.ndarray = np.asarray(body["embeddings"], dtype=np.float32)
+        embeddings: np.ndarray[Any, Any] = np.asarray(body["embeddings"], dtype=np.float32)
         self._dim = int(body["dim"])
 
         if normalize_embeddings and embeddings.size:
