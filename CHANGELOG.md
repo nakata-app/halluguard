@@ -4,6 +4,48 @@ All notable changes to halluguard are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — v0.2-prod
+
+### Added
+- **`Guard.from_daemon(documents, daemon_url)`** — build a Guard whose
+  encoder is a long-lived `adaptmem serve` process. The retriever, NLI
+  verifier, and segmenter all stay local; only the encoder hop crosses
+  HTTP. Saves the per-process model load cost when claimcheck +
+  halluguard + a third service would otherwise each load the same
+  MiniLM. Calls `/healthz` first so misconfig fails loudly.
+- **`halluguard.daemon.DaemonEncoder`** — drop-in `encoder` for
+  `Guard.from_documents` / `CorpusIndex` that POSTs `/embed` batches
+  to the daemon. Implements the SentenceTransformer encode subset that
+  retriever needs, with local L2 re-normalisation as a defence.
+- **`tests/test_daemon.py`** — 5 cases via stdlib HTTPServer fixture
+  (no real daemon required). DaemonEncoder unit tests + Guard.from_daemon
+  end-to-end.
+- **`benchmarks/timing_bench.py`** — measures `Guard.check` p50/p90/p99
+  ms across grounded / mixed / hallucinated workloads. Mac-deadlocks
+  on first NLI predict; runs to completion on Linux/CI.
+- **`SupportReport.trust_score`** — response-level scalar (mean per-claim
+  support score) so middleware can route on a single number.
+- **`SupportReport.to_dict()` + `--format json` CLI flag** — programmatic
+  consumers consume the same structure markdown reports surface.
+- **`Guard.check_stream(answer_chunks, question)`** — sentence-by-
+  sentence verifier; flags a hallucinated sentence the moment it lands.
+  Useful for live LLM responses where waiting for the full answer is
+  too slow.
+- **`Guard.from_adaptmem(am)` factory** — bridges adaptmem (domain-
+  tuned retrieval) and halluguard. Tuned encoder + already-encoded
+  corpus reused via `CorpusIndex.from_precomputed`.
+- **mypy --strict pass.** `report.py` `to_dict() -> dict[str, Any]`,
+  `verifier.py` `_ensure_model() -> None`, post-condition assert on the
+  optional model field.
+- **`release.yml`** — wheel build + sdist + tag-gated PyPI publish step
+  (skipped via shell guard when `PYPI_API_TOKEN` is absent so initial
+  tags don't fail).
+
+### Changed
+- README — new "Daemon mode (`Guard.from_daemon`)" section and link to
+  the [adaptmem ADR](https://github.com/nakata-app/adaptmem/blob/master/docs/metis_integration.md)
+  documenting the cross-repo integration.
+
 ## [Unreleased] — v0.2-ext
 
 ### Added
