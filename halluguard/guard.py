@@ -67,6 +67,41 @@ class Guard:
         return cls(index=index, **kwargs)
 
     @classmethod
+    def from_daemon(
+        cls,
+        documents: list[str],
+        daemon_url: str = "http://127.0.0.1:7800",
+        timeout_s: float = 10.0,
+        chunk_size: int = 200,
+        chunk_overlap: int = 50,
+        **kwargs: Any,
+    ) -> "Guard":
+        """Build a Guard whose encoder is an `adaptmem serve` daemon.
+
+        Same surface as `from_documents`, but the SentenceTransformer load
+        happens once inside the daemon process — across many Guard
+        instances if you have several. Useful when:
+        - you don't want to load a model per Python process (claimcheck +
+          halluguard + metis would each pay the same MiniLM cost);
+        - you want the encoder cached across worker restarts (daemon
+          stays up).
+
+        Quietly checks `/healthz` first so a misconfigured daemon URL
+        fails loudly here, not deep inside the first `.check()` call.
+        """
+        from halluguard.daemon import DaemonEncoder
+
+        encoder = DaemonEncoder(daemon_url=daemon_url, timeout_s=timeout_s)
+        encoder.healthz()  # raises if unreachable
+        return cls.from_documents(
+            documents,
+            encoder=encoder,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            **kwargs,
+        )
+
+    @classmethod
     def from_adaptmem(cls, am: Any, **kwargs: Any) -> "Guard":
         """Build a Guard backed by an adaptmem-tuned encoder + its corpus.
 
