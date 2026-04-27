@@ -39,7 +39,7 @@ class NLIVerifier:
         self.model_name = model_name
         self._model = None
 
-    def _ensure_model(self):
+    def _ensure_model(self) -> None:
         if self._model is None:
             from sentence_transformers import CrossEncoder
 
@@ -66,6 +66,7 @@ class NLIVerifier:
         if not chunks:
             return VerifierResult(entailment=0.0, contradiction=0.0)
         self._ensure_model()
+        assert self._model is not None  # _ensure_model post-condition (mypy hint)
         # CrossEncoder NLI model output is [contradiction, entailment, neutral] logits
         # for cross-encoder/nli-deberta-v3-base. Different NLI checkpoints differ;
         # we select by `id2label` introspection when available, else assume the

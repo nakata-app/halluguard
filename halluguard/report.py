@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class ClaimStatus(str, Enum):
@@ -97,7 +98,7 @@ class SupportReport:
             return 0.0
         return sum(c.support_score for c in self.claims) / len(self.claims)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """JSON-ready representation. Suitable for `json.dumps`.
 
         Useful as the wire format for middleware / CI / dashboards that
