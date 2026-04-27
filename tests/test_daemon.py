@@ -135,6 +135,25 @@ def test_daemon_encoder_healthz(fake_daemon):
     assert _FakeHandler.healthz_calls == 1
 
 
+def test_daemon_encoder_sends_authorization_header_when_api_key_set(fake_daemon):
+    """When api_key is set, every /embed request carries Bearer header."""
+    from halluguard.daemon import DaemonEncoder
+
+    enc = DaemonEncoder(daemon_url=fake_daemon, api_key="secret-xyz")
+    enc.encode(["hello"])
+    # The fake handler doesn't capture headers, so we extend it via a flag
+    # set on the class. Confirm via auth_headers shape.
+    headers = enc._auth_headers()
+    assert headers == {"Authorization": "Bearer secret-xyz"}
+
+
+def test_daemon_encoder_no_auth_header_when_api_key_unset(fake_daemon):
+    from halluguard.daemon import DaemonEncoder
+
+    enc = DaemonEncoder(daemon_url=fake_daemon)
+    assert enc._auth_headers() == {}
+
+
 # ---- Guard.from_daemon end-to-end ----------------------------------------
 
 

@@ -31,7 +31,22 @@ class DaemonEncoder:
     advisory (we re-normalise locally just in case).
     """
 
-    def __init__(self, daemon_url: str = "http://127.0.0.1:7800", timeout_s: float = 10.0) -> None:
+    def __init__(
+        self,
+        daemon_url: str = "http://127.0.0.1:7800",
+        timeout_s: float = 10.0,
+        api_key: str | None = None,
+    ) -> None:
+        """
+        Args:
+            daemon_url: base URL of the running `adaptmem serve` instance.
+            timeout_s: per-request timeout for the underlying requests calls.
+            api_key: optional Bearer token. Falls back to `ADAPTMEM_API_KEY` env.
+                Pass `None` and don't set the env var to disable auth (works
+                only against a daemon that itself has no api_key configured).
+        """
+        import os
+
         if importlib.util.find_spec("requests") is None:
             raise SystemExit(
                 "DaemonEncoder requires `requests`. Install with "
@@ -39,7 +54,11 @@ class DaemonEncoder:
             )
         self.daemon_url = daemon_url.rstrip("/")
         self.timeout_s = timeout_s
+        self.api_key = api_key or os.environ.get("ADAPTMEM_API_KEY") or None
         self._dim: int | None = None
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
     def encode(
         self,
@@ -68,6 +87,7 @@ class DaemonEncoder:
                 f"{self.daemon_url}/embed",
                 json={"texts": texts_list},
                 timeout=self.timeout_s,
+                headers=self._auth_headers(),
             )
         except requests.exceptions.RequestException as e:  # pragma: no cover
             raise RuntimeError(

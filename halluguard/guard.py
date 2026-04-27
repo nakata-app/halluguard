@@ -72,6 +72,7 @@ class Guard:
         documents: list[str],
         daemon_url: str = "http://127.0.0.1:7800",
         timeout_s: float = 10.0,
+        api_key: str | None = None,
         chunk_size: int = 200,
         chunk_overlap: int = 50,
         **kwargs: Any,
@@ -86,12 +87,15 @@ class Guard:
         - you want the encoder cached across worker restarts (daemon
           stays up).
 
+        Auth: pass `api_key` (or set `ADAPTMEM_API_KEY` env) when the
+        daemon is started with `--api-key` / `ADAPTMEM_API_KEY`.
+
         Quietly checks `/healthz` first so a misconfigured daemon URL
         fails loudly here, not deep inside the first `.check()` call.
         """
         from halluguard.daemon import DaemonEncoder
 
-        encoder = DaemonEncoder(daemon_url=daemon_url, timeout_s=timeout_s)
+        encoder = DaemonEncoder(daemon_url=daemon_url, timeout_s=timeout_s, api_key=api_key)
         encoder.healthz()  # raises if unreachable
         return cls.from_documents(
             documents,
