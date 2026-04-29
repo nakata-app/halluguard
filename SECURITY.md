@@ -4,7 +4,7 @@
 
 Please **do not** open a public GitHub issue for security-sensitive
 findings. Instead, email the maintainer at
-**ataknakbaba@gmail.com** with:
+**hey@nakata.app** with:
 
 - A description of the issue.
 - Steps to reproduce (a minimal repro is enough).
@@ -26,11 +26,11 @@ Out of scope:
   `transformers`, `torch`).
 - Performance issues without a security impact (file regular issues
   instead).
-- Adversarial inputs that *fool* the NLI verifier into a wrong call —
+- Adversarial inputs that *fool* the NLI verifier into a wrong call, 
   these are accuracy issues, not security ones. Open a regular issue
   with a reproduction.
 
-## Threat model — daemon mode
+## Threat model, daemon mode
 
 `Guard.from_daemon` calls a local `adaptmem serve` process. The
 daemon is **localhost-only, single-user** by default and does not
