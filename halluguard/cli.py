@@ -12,9 +12,24 @@ from pathlib import Path
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="halluguard")
-    ap.add_argument("answer", help="path to answer text file (or '-' for stdin)")
-    grp = ap.add_mutually_exclusive_group(required=True)
+    # Pre-route `serve` before main argparse so that answer positional paths
+    # are not misidentified as subcommand names by argparse.
+    if len(sys.argv) > 1 and sys.argv[1] == "serve":
+        sp = argparse.ArgumentParser(prog="halluguard serve")
+        sp.add_argument("--port", type=int, default=7801)
+        sp.add_argument("--model", default="all-MiniLM-L6-v2")
+        sargs = sp.parse_args(sys.argv[2:])
+        from halluguard.server import serve
+        serve(port=sargs.port, model_name=sargs.model)
+        return
+
+    ap = argparse.ArgumentParser(
+        prog="halluguard",
+        description="halluguard <answer.txt> --corpus <dir>  |  halluguard serve [--port N]",
+    )
+
+    ap.add_argument("answer", nargs="?", help="path to answer text file (or '-' for stdin)")
+    grp = ap.add_mutually_exclusive_group()
     grp.add_argument("--corpus", help="directory of .txt files (corpus)")
     grp.add_argument(
         "--corpus-text",
@@ -62,10 +77,16 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    if not args.answer:
+        ap.error("answer file required when not using 'serve'")
+
     if args.answer == "-":
         answer = sys.stdin.read()
     else:
         answer = Path(args.answer).read_text()
+
+    if args.corpus is None and args.corpus_text is None and args.corpus_file is None:
+        ap.error("one of the arguments --corpus --corpus-text --corpus-file is required")
 
     if args.corpus_text is not None:
         documents = [args.corpus_text]

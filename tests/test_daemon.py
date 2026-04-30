@@ -147,7 +147,8 @@ def test_daemon_encoder_sends_authorization_header_when_api_key_set(fake_daemon)
     assert headers == {"Authorization": "Bearer secret-xyz"}
 
 
-def test_daemon_encoder_no_auth_header_when_api_key_unset(fake_daemon):
+def test_daemon_encoder_no_auth_header_when_api_key_unset(fake_daemon, monkeypatch):
+    monkeypatch.delenv("ADAPTMEM_API_KEY", raising=False)
     from halluguard.daemon import DaemonEncoder
 
     enc = DaemonEncoder(daemon_url=fake_daemon)
